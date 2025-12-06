@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, __version__ as TG_VER
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from datetime import datetime, timedelta
 
@@ -46,12 +46,10 @@ async def handle_callback(update: Update, context):
 
     await query.answer()
 
-    # ===== PILIH AKTIVITAS =====
     if data.startswith("ACT|"):
         _, owner_str, act_key = data.split("|")
         owner_id = int(owner_str)
 
-        # ❌ Bukan pemilik tombol
         if uid != owner_id:
             await query.message.reply_text(
                 f"❌ Tombol izin milik user ID {owner_id} diklik oleh {nama} (id {uid}) – DITOLAK."
@@ -73,7 +71,7 @@ async def handle_callback(update: Update, context):
         minutes = info["minutes"]
 
         start_time = datetime.now()
-        limit_time = start_time + timedelta(minutes=minutes) if minutes is not None else None
+        limit_time = start_time + timedelta(minutes=minutes) if minutes else None
 
         izin_data[uid] = {
             "label": label,
@@ -99,15 +97,13 @@ async def handle_callback(update: Update, context):
         await query.edit_message_text(text, reply_markup=markup)
         return
 
-    # ===== AKHIRI IZIN =====
     if data.startswith("END|"):
         _, owner_str = data.split("|")
         owner_id = int(owner_str)
 
-        # ❌ Bukan pemilik izin
         if uid != owner_id:
             await query.message.reply_text(
-                f"❌ Tombol AKHIRI izin milik user ID {owner_id} diklik oleh {nama} (id {uid}) – DITOLAK."
+                f"❌ Tombol AKHIRI izin milik user ID {owner_id} diklik oleh {nama} – DITOLAK."
             )
             return
 
@@ -115,17 +111,16 @@ async def handle_callback(update: Update, context):
             await query.message.reply_text("❌ Kamu tidak punya izin aktif.")
             return
 
-        data_izin = izin_data[uid]
-        start_time = data_izin["start"]
-        label = data_izin["label"]
+        izin = izin_data[uid]
+        start_time = izin["start"]
+        label = izin["label"]
         end_time = datetime.now()
 
-        durasi = end_time - start_time
-        durasi_menit = durasi.total_seconds() / 60
+        durasi = (end_time - start_time).total_seconds() / 60
 
         await query.edit_message_text(
             f"Izin '{label}' untuk {nama} selesai pada {end_time.strftime('%H:%M:%S')}.\n"
-            f"Durasi: {durasi_menit:.2f} menit."
+            f"Durasi: {durasi:.2f} menit."
         )
 
         del izin_data[uid]
@@ -144,20 +139,14 @@ def main():
         print("ERROR: BOT_TOKEN belum diset.")
         return
 
-    print(f"python-telegram-bot version: {TG_VER}")
-
-    # 🔧 KHUSUS RAILWAY (20.7) → matikan Updater
-    # CMD kamu yang pakai versi lama → tetap pakai Updater
-    if TG_VER >= "20.4":
-        # Railway (20.7) atau versi baru
-        print("MODE: PTB >= 20.4 → gunakan Application tanpa Updater (updater(None))")
-        builder = Application.builder().token(bot_token).updater(None)
-    else:
-        # Versi lama di lokal
-        print("MODE: PTB < 20.4 → gunakan Application dengan Updater")
-        builder = Application.builder().token(bot_token)
-
-    application = builder.build()
+    # 🚀 VERSI PALING STABIL UNTUK RAILWAY (20.5)
+    # updater(None) WAJIB supaya tidak crash di Python 3.13
+    application = (
+        Application.builder()
+        .token(bot_token)
+        .updater(None)
+        .build()
+    )
 
     job_queue = application.job_queue
     if job_queue:
@@ -167,8 +156,6 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_callback))
 
     application.run_polling()
-
-# ================= ENTRY =================
 
 if __name__ == "__main__":
     main()
