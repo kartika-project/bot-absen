@@ -168,7 +168,12 @@ def main():
         print("ERROR: BOT_TOKEN belum diset di environment variable.")
         return
 
-    application = Application.builder().token(bot_token).build()
+    application = (
+        Application.builder()
+        .token(bot_token)
+        .updater(None)  # penting: jangan pakai Updater lama
+        .build()
+    )
 
     job_queue = application.job_queue
     if job_queue is not None:
@@ -181,8 +186,3 @@ def main():
 
     application.run_polling()
 
-
-
-
-if __name__ == "__main__":
-    main()
