@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, __version__ as TG_VER
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from datetime import datetime, timedelta
 
@@ -144,12 +144,18 @@ def main():
         print("ERROR: BOT_TOKEN belum diset.")
         return
 
-    is_railway = os.environ.get("RAILWAY_ENV") == "1"
+    print(f"python-telegram-bot version: {TG_VER}")
 
-    builder = Application.builder().token(bot_token)
-
-    if is_railway:
-        builder = builder.updater(None)
+    # 🔧 KHUSUS RAILWAY (20.7) → matikan Updater
+    # CMD kamu yang pakai versi lama → tetap pakai Updater
+    if TG_VER >= "20.4":
+        # Railway (20.7) atau versi baru
+        print("MODE: PTB >= 20.4 → gunakan Application tanpa Updater (updater(None))")
+        builder = Application.builder().token(bot_token).updater(None)
+    else:
+        # Versi lama di lokal
+        print("MODE: PTB < 20.4 → gunakan Application dengan Updater")
+        builder = Application.builder().token(bot_token)
 
     application = builder.build()
 
