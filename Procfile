@@ -1,1 +1,1 @@
-worker: python absen_bot.py
+worker: python3 absen_bot.py
