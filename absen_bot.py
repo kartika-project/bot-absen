@@ -1,15 +1,15 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from datetime import datetime, timedelta
 
-# Simpan data izin per user
-# { user_id: { "label": str, "start": datetime, "limit": datetime|None } }
+# ================= DATA =================
+
 izin_data = {}
 
-# Definisi aktivitas
 ACTIVITIES = {
     "beli_makan":   {"label": "beli makan",   "minutes": 15},
     "ke_balkon":    {"label": "ke balkon",    "minutes": 5},
@@ -17,7 +17,8 @@ ACTIVITIES = {
     "ke_toilet":    {"label": "ke toilet",    "minutes": None},
 }
 
-# ============= /start =============
+# ================= /START =================
+
 async def start(update: Update, context):
     user = update.effective_user
     uid = user.id
@@ -34,7 +35,8 @@ async def start(update: Update, context):
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
-# ============= Handler semua tombol =============
+# ================= CALLBACK =================
+
 async def handle_callback(update: Update, context):
     query = update.callback_query
     data = query.data or ""
@@ -42,42 +44,31 @@ async def handle_callback(update: Update, context):
     uid = user.id
     nama = user.full_name
 
-    print("Callback:", data, "dari", uid, nama)  # debug ke CMD
     await query.answer()
 
-    # ---------- PILIH AKTIVITAS ----------
+    # ===== PILIH AKTIVITAS =====
     if data.startswith("ACT|"):
-        parts = data.split("|")
-        if len(parts) != 3:
-            await query.message.reply_text("Data tombol tidak valid.")
-            return
+        _, owner_str, act_key = data.split("|")
+        owner_id = int(owner_str)
 
-        _, owner_str, act_key = parts
-        try:
-            owner_id = int(owner_str)
-        except ValueError:
-            await query.message.reply_text("Data tombol rusak.")
-            return
-
-        # Bukan pemilik tombol → tolak dan kasih tau di chat
+        # ❌ Bukan pemilik tombol
         if uid != owner_id:
             await query.message.reply_text(
                 f"❌ Tombol izin milik user ID {owner_id} diklik oleh {nama} (id {uid}) – DITOLAK."
             )
             return
 
-        # Sudah punya izin aktif
         if uid in izin_data:
             await query.message.reply_text(
                 f"❌ {nama} masih punya izin aktif '{izin_data[uid]['label']}'. Akhiri dulu."
             )
             return
 
-        if act_key not in ACTIVITIES:
+        info = ACTIVITIES.get(act_key)
+        if not info:
             await query.message.reply_text("Aktivitas tidak dikenali.")
             return
 
-        info = ACTIVITIES[act_key]
         label = info["label"]
         minutes = info["minutes"]
 
@@ -87,12 +78,11 @@ async def handle_callback(update: Update, context):
         izin_data[uid] = {
             "label": label,
             "start": start_time,
-            "limit": limit_time,
+            "limit": limit_time
         }
 
-        # Tombol end
-        end_button = InlineKeyboardButton("✅ Akhiri Izin", callback_data=f"END|{uid}")
-        reply_markup = InlineKeyboardMarkup([[end_button]])
+        end_btn = InlineKeyboardButton("✅ Akhiri Izin", callback_data=f"END|{uid}")
+        markup = InlineKeyboardMarkup([[end_btn]])
 
         if limit_time:
             text = (
@@ -106,24 +96,15 @@ async def handle_callback(update: Update, context):
                 f"Udah balik? jangan lupa klik Akhiri Izin."
             )
 
-        await query.edit_message_text(text, reply_markup=reply_markup)
+        await query.edit_message_text(text, reply_markup=markup)
         return
 
-    # ---------- AKHIRI IZIN ----------
+    # ===== AKHIRI IZIN =====
     if data.startswith("END|"):
-        parts = data.split("|")
-        if len(parts) != 2:
-            await query.message.reply_text("Data tombol tidak valid.")
-            return
+        _, owner_str = data.split("|")
+        owner_id = int(owner_str)
 
-        _, owner_str = parts
-        try:
-            owner_id = int(owner_str)
-        except ValueError:
-            await query.message.reply_text("Data tombol rusak.")
-            return
-
-        # Bukan pemilik izin → tolak
+        # ❌ Bukan pemilik izin
         if uid != owner_id:
             await query.message.reply_text(
                 f"❌ Tombol AKHIRI izin milik user ID {owner_id} diklik oleh {nama} (id {uid}) – DITOLAK."
@@ -150,39 +131,38 @@ async def handle_callback(update: Update, context):
         del izin_data[uid]
         return
 
-    # Kalau pattern gak dikenal
-    await query.message.reply_text("Tombol tidak dikenal.")
+# ================= AUTO PING =================
 
-
-# ============= AUTO PING =============
 async def auto_ping(context):
-    # Ini cuma buat memastikan bot "bergerak" tiap beberapa menit
-    # Supaya kalau nanti di-host di server (Railway/Render) tidak cepat sleep
     print("Auto-ping: bot masih hidup...")
 
+# ================= MAIN =================
 
-# ============= MAIN =============
 def main():
     bot_token = os.environ.get("BOT_TOKEN")
     if not bot_token:
-        print("ERROR: BOT_TOKEN belum diset di environment variable.")
+        print("ERROR: BOT_TOKEN belum diset.")
         return
 
-    application = (
-        Application.builder()
-        .token(bot_token)
-        .updater(None)  # penting: jangan pakai Updater lama
-        .build()
-    )
+    is_railway = os.environ.get("RAILWAY_ENV") == "1"
+
+    builder = Application.builder().token(bot_token)
+
+    if is_railway:
+        builder = builder.updater(None)
+
+    application = builder.build()
 
     job_queue = application.job_queue
-    if job_queue is not None:
+    if job_queue:
         job_queue.run_repeating(auto_ping, interval=300, first=10)
-    else:
-        print("PERINGATAN: job_queue None, auto-ping tidak aktif.")
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_callback))
 
     application.run_polling()
 
+# ================= ENTRY =================
+
+if __name__ == "__main__":
+    main()
