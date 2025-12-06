@@ -139,14 +139,7 @@ def main():
         print("ERROR: BOT_TOKEN belum diset.")
         return
 
-    # 🚀 VERSI PALING STABIL UNTUK RAILWAY (20.5)
-    # updater(None) WAJIB supaya tidak crash di Python 3.13
-    application = (
-        Application.builder()
-        .token(bot_token)
-        .updater(None)
-        .build()
-    )
+    application = Application.builder().token(bot_token).build()
 
     job_queue = application.job_queue
     if job_queue:
@@ -157,5 +150,7 @@ def main():
 
     application.run_polling()
 
+
 if __name__ == "__main__":
     main()
+
