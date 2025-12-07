@@ -6,6 +6,10 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from datetime import datetime, timedelta
 
+# === Tambahkan timezone di sini ===
+import pytz
+TZ = pytz.timezone("Asia/Jakarta")
+
 # ================= DATA =================
 
 izin_data = {}
@@ -70,7 +74,7 @@ async def handle_callback(update: Update, context):
         label = info["label"]
         minutes = info["minutes"]
 
-        start_time = datetime.now()
+        start_time = datetime.now(TZ)
         limit_time = start_time + timedelta(minutes=minutes) if minutes else None
 
         izin_data[uid] = {
@@ -114,7 +118,7 @@ async def handle_callback(update: Update, context):
         izin = izin_data[uid]
         start_time = izin["start"]
         label = izin["label"]
-        end_time = datetime.now()
+        end_time = datetime.now(TZ)
 
         durasi = (end_time - start_time).total_seconds() / 60
 
@@ -153,4 +157,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
